@@ -112,7 +112,7 @@ function App() {
   return (
     <div className="min-h-screen p-6 bg-gray-100">
       <div className="max-w-5xl mx-auto space-y-6">
-        <h1 className="text-2xl font-bold">🚌 Ad Preview PDF Generator</h1>
+        <h1 className="text-2xl font-bold">📄 PDF Generator Preview</h1>
 
         <input
           type="text"
