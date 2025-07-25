@@ -1,0 +1,207 @@
+import { useState, useRef } from "react";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+
+type Entry = {
+  title: string;
+  size: string;
+  image: string | null;
+};
+
+function App() {
+  const [jobNumber, setJobNumber] = useState<string>("");
+  const [entries, setEntries] = useState<Entry[]>([
+    { title: "", size: "", image: null },
+  ]);
+  const previewRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const handleImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    index: number
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileName = file.name.toLowerCase();
+
+    if (
+      file.type === "image/tiff" ||
+      fileName.endsWith(".tif") ||
+      fileName.endsWith(".tiff")
+    ) {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch("http://localhost:4000/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+
+        if (data.base64) {
+          updateEntry(index, "image", `data:image/png;base64,${data.base64}`);
+        } else {
+          alert("TIFF conversion failed.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Error uploading TIFF image.");
+      }
+    } else {
+      const url = URL.createObjectURL(file);
+      updateEntry(index, "image", url);
+    }
+  };
+
+  const updateEntry = (index: number, field: keyof Entry, value: string) => {
+    const updated = [...entries];
+    updated[index][field] = value;
+    setEntries(updated);
+  };
+
+  const addEntry = () => {
+    setEntries([...entries, { title: "", size: "", image: null }]);
+  };
+
+  const deleteEntry = (index: number) => {
+    setEntries(entries.filter((_, i) => i !== index));
+  };
+
+  const downloadPDF = async () => {
+    const pdf = new jsPDF("portrait", "mm", "a4");
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+
+    for (let i = 0; i < entries.length; i++) {
+      const ref = previewRefs.current[i];
+      if (!ref) continue;
+
+      const canvas = await html2canvas(ref, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        useCORS: true,
+        scrollY: -window.scrollY,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const imgProps = pdf.getImageProperties(imgData);
+      const imgWidth = pageWidth;
+      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+      const yOffset = (pageHeight - imgHeight) / 2;
+
+      if (i > 0) pdf.addPage();
+      pdf.addImage(imgData, "PNG", 0, yOffset, imgWidth, imgHeight);
+    }
+
+    pdf.save(`${jobNumber || "output"}.pdf`);
+  };
+
+  return (
+    <div className="min-h-screen p-6 bg-gray-100">
+      <div className="max-w-5xl mx-auto space-y-6">
+        <h1 className="text-2xl font-bold">🚌 Ad Preview PDF Generator</h1>
+
+        <input
+          type="text"
+          placeholder="Job Number (shown on every page)"
+          value={jobNumber}
+          onChange={(e) => setJobNumber(e.target.value)}
+          className="w-full p-2 border rounded"
+        />
+
+        {entries.map((entry, index) => (
+          
+          <div
+            key={index}
+            className="relative p-4 mt-4 bg-white border rounded shadow space-y-3"
+          >
+            <div className="space-y-2">
+<input
+              type="text"
+              placeholder="Enter Title (blue)"
+              value={entry.title}
+              onChange={(e) => updateEntry(index, "title", e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+
+            <input
+              type="text"
+              placeholder="Enter Size (yellow)"
+              value={entry.size}
+              onChange={(e) => updateEntry(index, "size", e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+
+            <input
+              type="file"
+              accept=".png,.jpg,.jpeg,.tif,.tiff,image/*"
+              onChange={(e) => handleImageUpload(e, index)}
+            />
+            <button
+              onClick={() => deleteEntry(index)}
+              className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+              title="Delete entry"
+            >
+              ?
+            </button>
+            </div>
+             
+          <div
+            ref={(el) => {
+              previewRefs.current[index] = el;
+            }}
+            className="p-4 bg-white border mt-2"
+          >
+    <div className="text-sm text-gray-500 font-semibold">
+            Job Number: {jobNumber}
+          </div>
+
+            <div className="flex justify-between items-center px-4 py-2 border-b border-gray-200">
+              <div className="text-blue-600 font-bold text-lg">
+                {entry.title}
+              </div>
+              <div className="text-yellow-500 font-bold text-lg">
+                {entry.size}
+              </div>
+            </div>
+
+           
+
+            {entry.image && (
+              <div className="w-full max-w-[600px] max-h-[400px] overflow-hidden mx-auto">
+                <img
+                  src={entry.image}
+                  alt="Uploaded"
+                  className="object-contain w-full h-auto"
+                />
+              </div>
+            )}
+    </div>
+            
+          </div>
+        ))}
+
+        <div className="flex gap-4">
+          <button
+            onClick={addEntry}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          >
+            ➕ Add More
+          </button>
+
+          {entries.length > 0 && entries.some((e) => e.image) && (
+            <button
+              onClick={downloadPDF}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            >
+             ⬇️ Download PDF
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;
