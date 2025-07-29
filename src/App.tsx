@@ -216,7 +216,7 @@ const downloadPDF = async () => {
       const x = (pageWidth - printWidth) / 3;
       //const y = (pageHeight - printHeight) /30;
       const y = Math.max((pageHeight - printHeight) / 2, topPadding);
-       if (i > 0) pdf.addPage(orientation, "a4");
+       if (i > 0) pdf.addPage(orientation);
       pdf.setPage(i + 2);
       pdf.addImage(imgData, "PNG", x, y, printWidth, printHeight);
  }else{
@@ -234,7 +234,7 @@ const downloadPDF = async () => {
 
       const x = (pageWidth - printWidth) / 5;
       const y = (pageHeight - printHeight) / 8;
-       if (i > 0) pdf.addPage(orientation, "a4");
+       if (i > 0) pdf.addPage(orientation);
       pdf.setPage(i + 1);
       pdf.addImage(imgData, "PNG", x, y, printWidth, printHeight);
  }
