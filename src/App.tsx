@@ -221,105 +221,105 @@ async function drawRotated(
   return { url, w: outW, h: outH, ar: outW / outH };
 }
 
-function drawHeader(
-  pdf: jsPDF,
-  {
-    title,
-    sizeText,
-    jobNumber,
-    pageW,
-    margin,
-  }: {
-    title: string;
-    sizeText: string;
-    jobNumber: string;
-    pageW: number;
-    margin: number;
-  }
-): number {
-  let y = margin;
-  const availW = pageW - margin * 2;
-  const gutter = 6;        // spacing between title and yellow when sharing a line
-  const lhTitle = 8;       // ~ line height for 14pt
-  const lhSub   = 7;       // ~ line height for 12pt
+// function drawHeader(
+//   pdf: jsPDF,
+//   {
+//     title,
+//     sizeText,
+//     jobNumber,
+//     pageW,
+//     margin,
+//   }: {
+//     title: string;
+//     sizeText: string;
+//     jobNumber: string;
+//     pageW: number;
+//     margin: number;
+//   }
+// ): number {
+//   let y = margin;
+//   const availW = pageW - margin * 2;
+//   const gutter = 6;        // spacing between title and yellow when sharing a line
+//   const lhTitle = 8;       // ~ line height for 14pt
+//   const lhSub   = 7;       // ~ line height for 12pt
 
-  // --- Job Number (bigger)
-  if (jobNumber) {
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(16);            // bigger than the others
-    pdf.setTextColor(40);           // dark gray/black
-    pdf.text(`Job Number: ${jobNumber}`, margin, y + 8);
-    y += 12;                        // generous gap after job number
-  }
+//   // --- Job Number (bigger)
+//   if (jobNumber) {
+//     pdf.setFont("helvetica", "bold");
+//     pdf.setFontSize(16);            // bigger than the others
+//     pdf.setTextColor(40);           // dark gray/black
+//     pdf.text(`Job Number: ${jobNumber}`, margin, y + 8);
+//     y += 12;                        // generous gap after job number
+//   }
 
-  // nothing else to draw?
-  if (!title && !sizeText) return y + 4;
+//   // nothing else to draw?
+//   if (!title && !sizeText) return y + 4;
 
-  // Measure whether title and size can share a single line
-  // 1) title single-line measurement
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(14);
-  pdf.setTextColor(33, 150, 243);
+//   // Measure whether title and size can share a single line
+//   // 1) title single-line measurement
+//   pdf.setFont("helvetica", "bold");
+//   pdf.setFontSize(14);
+//   pdf.setTextColor(33, 150, 243);
 
-  const titleOneLine = pdf.splitTextToSize(title || "", availW) as string[];
-  const titleIsSingleLine = title && titleOneLine.length === 1;
-  const titleOne = titleIsSingleLine ? titleOneLine[0] : "";
+//   const titleOneLine = pdf.splitTextToSize(title || "", availW) as string[];
+//   const titleIsSingleLine = title && titleOneLine.length === 1;
+//   const titleOne = titleIsSingleLine ? titleOneLine[0] : "";
 
-  // 2) size width
-  pdf.setFontSize(12);
-  const sizeWidth = sizeText ? pdf.getTextWidth(sizeText) : 0;
+//   // 2) size width
+//   pdf.setFontSize(12);
+//   const sizeWidth = sizeText ? pdf.getTextWidth(sizeText) : 0;
 
-  // back to title font for drawing
-  pdf.setFontSize(14);
-  pdf.setTextColor(33, 150, 243);
+//   // back to title font for drawing
+//   pdf.setFontSize(14);
+//   pdf.setTextColor(33, 150, 243);
 
-  // If we have BOTH texts and the title fits on one line AND
-  // the combined width (title + gutter + yellow) fits → share the first line.
-  const canShareLine =
-    !!(title && sizeText) &&
-    titleIsSingleLine &&
-    pdf.getTextWidth(titleOne) + (sizeWidth ? gutter + sizeWidth : 0) <= availW;
+//   // If we have BOTH texts and the title fits on one line AND
+//   // the combined width (title + gutter + yellow) fits → share the first line.
+//   const canShareLine =
+//     !!(title && sizeText) &&
+//     titleIsSingleLine &&
+//     pdf.getTextWidth(titleOne) + (sizeWidth ? gutter + sizeWidth : 0) <= availW;
 
-  if (canShareLine) {
-    // draw title (left)
-    pdf.text(titleOne, margin, y + 6);
+//   if (canShareLine) {
+//     // draw title (left)
+//     pdf.text(titleOne, margin, y + 6);
 
-    // draw yellow (right)
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(12);
-    pdf.setTextColor(255, 193, 7);
-    pdf.text(sizeText!, pageW - margin, y + 6, { align: "right" });
+//     // draw yellow (right)
+//     pdf.setFont("helvetica", "bold");
+//     pdf.setFontSize(12);
+//     pdf.setTextColor(255, 193, 7);
+//     pdf.text(sizeText!, pageW - margin, y + 6, { align: "right" });
 
-    y += lhTitle + 6; // space after header row
-  } else {
-    // --- Title wrapped across full width
-    const titleLines = pdf.splitTextToSize(title || "", availW) as string[];
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(14);
-    pdf.setTextColor(33, 150, 243);
-    for (const line of titleLines) {
-      pdf.text(line, margin, y + 6);
-      y += lhTitle;
-    }
+//     y += lhTitle + 6; // space after header row
+//   } else {
+//     // --- Title wrapped across full width
+//     const titleLines = pdf.splitTextToSize(title || "", availW) as string[];
+//     pdf.setFont("helvetica", "bold");
+//     pdf.setFontSize(14);
+//     pdf.setTextColor(33, 150, 243);
+//     for (const line of titleLines) {
+//       pdf.text(line, margin, y + 6);
+//       y += lhTitle;
+//     }
 
-    // --- Yellow wrapped on its own (right aligned, multi-line)
-    if (sizeText) {
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(12);
-      pdf.setTextColor(255, 193, 7);
+//     // --- Yellow wrapped on its own (right aligned, multi-line)
+//     if (sizeText) {
+//       pdf.setFont("helvetica", "bold");
+//       pdf.setFontSize(12);
+//       pdf.setTextColor(255, 193, 7);
 
-      const sizeLines = pdf.splitTextToSize(sizeText, availW) as string[];
-      for (const line of sizeLines) {
-        pdf.text(line, pageW - margin, y + 6, { align: "right" });
-        y += lhSub;
-      }
-    }
+//       const sizeLines = pdf.splitTextToSize(sizeText, availW) as string[];
+//       for (const line of sizeLines) {
+//         pdf.text(line, pageW - margin, y + 6, { align: "right" });
+//         y += lhSub;
+//       }
+//     }
 
-    y += 6; // small gap after the header block
-  }
+//     y += 6; // small gap after the header block
+//   }
 
-  return y;
-}
+//   return y;
+// }
 
   // Build PDF using images directly (keeps them sharp)
 // const downloadPDF = async () => {
