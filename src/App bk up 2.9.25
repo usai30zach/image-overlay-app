@@ -221,320 +221,16 @@ async function drawRotated(
   return { url, w: outW, h: outH, ar: outW / outH };
 }
 
-function drawHeader(
-  pdf: jsPDF,
-  {
-    title,
-    sizeText,
-    jobNumber,
-    pageW,
-    margin,
-  }: {
-    title: string;
-    sizeText: string;
-    jobNumber: string;
-    pageW: number;
-    margin: number;
-  }
-): number {
-  let y = margin;
-  const availW = pageW - margin * 2;
-  const gutter = 6;        // spacing between title and yellow when sharing a line
-  const lhTitle = 8;       // ~ line height for 14pt
-  const lhSub   = 7;       // ~ line height for 12pt
 
-  // --- Job Number (bigger)
-  if (jobNumber) {
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(16);            // bigger than the others
-    pdf.setTextColor(40);           // dark gray/black
-    pdf.text(`Job Number: ${jobNumber}`, margin, y + 8);
-    y += 12;                        // generous gap after job number
-  }
-
-  // nothing else to draw?
-  if (!title && !sizeText) return y + 4;
-
-  // Measure whether title and size can share a single line
-  // 1) title single-line measurement
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(14);
-  pdf.setTextColor(33, 150, 243);
-
-  const titleOneLine = pdf.splitTextToSize(title || "", availW) as string[];
-  const titleIsSingleLine = title && titleOneLine.length === 1;
-  const titleOne = titleIsSingleLine ? titleOneLine[0] : "";
-
-  // 2) size width
-  pdf.setFontSize(12);
-  const sizeWidth = sizeText ? pdf.getTextWidth(sizeText) : 0;
-
-  // back to title font for drawing
-  pdf.setFontSize(14);
-  pdf.setTextColor(33, 150, 243);
-
-  // If we have BOTH texts and the title fits on one line AND
-  // the combined width (title + gutter + yellow) fits → share the first line.
-  const canShareLine =
-    !!(title && sizeText) &&
-    titleIsSingleLine &&
-    pdf.getTextWidth(titleOne) + (sizeWidth ? gutter + sizeWidth : 0) <= availW;
-
-  if (canShareLine) {
-    // draw title (left)
-    pdf.text(titleOne, margin, y + 6);
-
-    // draw yellow (right)
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(12);
-    pdf.setTextColor(255, 193, 7);
-    pdf.text(sizeText!, pageW - margin, y + 6, { align: "right" });
-
-    y += lhTitle + 6; // space after header row
-  } else {
-    // --- Title wrapped across full width
-    const titleLines = pdf.splitTextToSize(title || "", availW) as string[];
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(14);
-    pdf.setTextColor(33, 150, 243);
-    for (const line of titleLines) {
-      pdf.text(line, margin, y + 6);
-      y += lhTitle;
-    }
-
-    // --- Yellow wrapped on its own (right aligned, multi-line)
-    if (sizeText) {
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(12);
-      pdf.setTextColor(255, 193, 7);
-
-      const sizeLines = pdf.splitTextToSize(sizeText, availW) as string[];
-      for (const line of sizeLines) {
-        pdf.text(line, pageW - margin, y + 6, { align: "right" });
-        y += lhSub;
-      }
-    }
-
-    y += 6; // small gap after the header block
-  }
-
-  return y;
-}
 
   // Build PDF using images directly (keeps them sharp)
-// const downloadPDF = async () => {
-//   setIsGenerating(true);
-//   try {
-//     const M = 8; // page margin
-//     const PAN_AR = PANORAMA_AR;
-
-//     // helper to pick the page orientation for an entry
-//     const pickOrientation = async (e: Entry) => {
-//       if (e.orientation && e.orientation !== "auto") return e.orientation;
-//       if (!e.image) return "portrait";
-//       const raw = await new Promise<HTMLImageElement>((res, rej) => {
-//         const im = new Image();
-//         im.onload = () => res(im);
-//         im.onerror = rej;
-//         im.src = e.image!;
-//       });
-//       const ar = raw.naturalWidth / raw.naturalHeight;
-//       return ar >= PAN_AR ? "landscape" : "portrait";
-//     };
-
-//     // decide the *first* page orientation BEFORE creating jsPDF
-//     const orientations: ("portrait" | "landscape")[] = [];
-//     for (let i = 0; i < entries.length; i++) {
-//       orientations.push(await pickOrientation(entries[i]));
-//     }
-//     const firstOri = orientations[0] || "portrait";
-
-//     // create the PDF with the correct first page orientation
-//     const pdf = new jsPDF({ orientation: firstOri, compress: true });
-
-//     for (let i = 0; i < entries.length; i++) {
-//       const entry = entries[i];
-//       if (!entry.image) continue;
-
-//       // add a new page for i > 0 with the right orientation
-//       if (i > 0) pdf.addPage(orientations[i]);
-
-//       const pageW = pdf.internal.pageSize.getWidth();
-//       const pageH = pdf.internal.pageSize.getHeight();
-
-//       // header
-//       pdf.setFont("helvetica", "bold");
-//       pdf.setFontSize(14);
-//       pdf.setTextColor(33, 150, 243);
-//       if (entry.title) pdf.text(entry.title, M, M + 6);
-
-//       pdf.setTextColor(255, 193, 7);
-//       pdf.setFontSize(12);
-//       if (entry.size) pdf.text(entry.size, pageW - M, M + 6, { align: "right" });
-
-//       pdf.setTextColor(60, 60, 60);
-//       pdf.setFontSize(12);
-//       if (jobNumber) pdf.text(`Job Number: ${jobNumber}`, M, M + 14);
-
-//       // content box
-//       const top = M + 18;
-//       const left = M;
-//       const rawW = pageW - M * 2;
-//       const rawH = pageH - top - M;
-
-//       // pre-rotate pixels to match the page orientation + any user rotation
-//       const userRot = ((entry as any).rotation ?? 0) as 0 | 90 | 180 | 270;
-//       const rotated = await drawRotated(entry.image, userRot, orientations[i], JPEG_QUALITY);
-//       const imgAR = rotated.ar;
-
-//       const inset = imgAR >= PAN_AR ? PANORAMA_INSET : NORMAL_INSET;
-//       const boxW = rawW * (1 - inset * 2);
-//       const boxH = rawH * (1 - inset * 2);
-//       const boxLeft = left + rawW * inset;
-//       const boxTop  = top  + rawH * inset;
-
-//       // contain fit
-//       let drawW = boxW;
-//       let drawH = drawW / imgAR;
-//       if (drawH > boxH) {
-//         drawH = boxH;
-//         drawW = drawH * imgAR;
-//       }
-
-//       // scale + offsets (from your UI)
-//       const scale = Math.min(100, Math.max(50, entry.scale ?? 100)) / 100;
-//       drawW *= scale;
-//       drawH *= scale;
-
-//       const slackX = boxW - drawW;
-//       const slackY = boxH - drawH;
-//       const offX = ((entry.offsetX ?? 0) / 100) * (slackX / 2);
-//       const offY = ((entry.offsetY ?? 0) / 100) * (slackY / 2);
-
-//       const x = boxLeft + (boxW - drawW) / 2 + offX;
-//       const y = boxTop  + (boxH - drawH) / 2 + offY;
-
-//       // add the pre-rotated image (no jsPDF rotation)
-//       const isJPEG = rotated.url.startsWith("data:image/jpeg");
-//       pdf.addImage(rotated.url, isJPEG ? "JPEG" : "PNG", x, y, drawW, drawH);
-//     }
-
-//     pdf.save(`${jobNumber || "output"}.pdf`);
-//   } catch (err) {
-//     console.error("PDF generation failed", err);
-//     alert("Something went wrong while generating the PDF.");
-//   } finally {
-//     setIsGenerating(false);
-//   }
-// };
-
-// const downloadPDF = async () => {
-//   setIsGenerating(true);
-//   try {
-//     const M = 8; // page margin
-//     const PAN_AR = PANORAMA_AR;
-
-//     // decide orientation for each entry (auto = panorama -> landscape)
-//     const pickOrientation = async (e: Entry) => {
-//       if (e.orientation && e.orientation !== "auto") return e.orientation;
-//       if (!e.image) return "portrait";
-//       const raw = await new Promise<HTMLImageElement>((res, rej) => {
-//         const im = new Image();
-//         im.onload = () => res(im);
-//         im.onerror = rej;
-//         im.src = e.image!;
-//       });
-//       const ar = raw.naturalWidth / raw.naturalHeight;
-//       return ar >= PAN_AR ? "landscape" : "portrait";
-//     };
-
-//     // pre-compute orientations so the first page is correct
-//     const orientations: ("portrait" | "landscape")[] = [];
-//     for (let i = 0; i < entries.length; i++) {
-//       orientations.push(await pickOrientation(entries[i]));
-//     }
-//     const firstOri = orientations[0] || "portrait";
-
-//     // create PDF with the first page orientation
-//     const pdf = new jsPDF({ orientation: firstOri, compress: true });
-
-//     for (let i = 0; i < entries.length; i++) {
-//       const entry = entries[i];
-//       if (!entry.image) continue;
-
-//       // add page with correct orientation for subsequent pages
-//       if (i > 0) pdf.addPage(orientations[i]);
-
-//       const pageW = pdf.internal.pageSize.getWidth();
-//       const pageH = pdf.internal.pageSize.getHeight();
-
-//       // ----- HEADER (wraps title, moves yellow to 2nd line if needed)
-//       const topY = drawHeader(pdf, {
-//         title: entry.title ?? "",
-//         sizeText: entry.size ?? "",
-//         jobNumber,
-//         pageW,
-//         margin: M,
-//       });
-
-//       // ----- CONTENT BOX (starts below header)
-//       const left = M;
-//       const rawW = pageW - M * 2;
-//       const rawH = pageH - topY - M;
-
-//       // pre-rotate pixels to match page orientation + any user rotation
-//       const userRot = ((entry as any).rotation ?? 0) as 0 | 90 | 180 | 270;
-//       const rotated = await drawRotated(entry.image, userRot, orientations[i], JPEG_QUALITY);
-//       const imgAR = rotated.ar;
-
-//       const inset = imgAR >= PAN_AR ? PANORAMA_INSET : NORMAL_INSET;
-//       const boxW = rawW * (1 - inset * 2);
-//       const boxH = rawH * (1 - inset * 2);
-//       const boxLeft = left + rawW * inset;
-//       const boxTop  = topY + rawH * inset;
-
-//       // contain-fit inside the box
-//       let drawW = boxW;
-//       let drawH = drawW / imgAR;
-//       if (drawH > boxH) {
-//         drawH = boxH;
-//         drawW = drawH * imgAR;
-//       }
-
-//       // user scale + offsets
-//       const scale = Math.min(100, Math.max(50, entry.scale ?? 100)) / 100;
-//       drawW *= scale;
-//       drawH *= scale;
-
-//       const slackX = boxW - drawW;
-//       const slackY = boxH - drawH;
-//       const offX = ((entry.offsetX ?? 0) / 100) * (slackX / 2);
-//       const offY = ((entry.offsetY ?? 0) / 100) * (slackY / 2);
-
-//       const x = boxLeft + (boxW - drawW) / 2 + offX;
-//       const y = boxTop  + (boxH - drawH) / 2 + offY;
-
-//       // draw the pre-rotated image (no jsPDF rotation)
-//       const isJPEG = rotated.url.startsWith("data:image/jpeg");
-//       pdf.addImage(rotated.url, isJPEG ? "JPEG" : "PNG", x, y, drawW, drawH);
-//     }
-
-//     pdf.save(`${jobNumber || "output"}.pdf`);
-//   } catch (err) {
-//     console.error("PDF generation failed", err);
-//     alert("Something went wrong while generating the PDF.");
-//   } finally {
-//     setIsGenerating(false);
-//   }
-// };
-
 const downloadPDF = async () => {
   setIsGenerating(true);
   try {
-    const M = 8; // margin
+    const M = 8; // page margin
     const PAN_AR = PANORAMA_AR;
 
-    // helper: pick page orientation
+    // helper to pick the page orientation for an entry
     const pickOrientation = async (e: Entry) => {
       if (e.orientation && e.orientation !== "auto") return e.orientation;
       if (!e.image) return "portrait";
@@ -548,81 +244,56 @@ const downloadPDF = async () => {
       return ar >= PAN_AR ? "landscape" : "portrait";
     };
 
-    // pre-pick orientations
+    // decide the *first* page orientation BEFORE creating jsPDF
     const orientations: ("portrait" | "landscape")[] = [];
     for (let i = 0; i < entries.length; i++) {
       orientations.push(await pickOrientation(entries[i]));
     }
     const firstOri = orientations[0] || "portrait";
 
-    // init pdf
+    // create the PDF with the correct first page orientation
     const pdf = new jsPDF({ orientation: firstOri, compress: true });
 
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
       if (!entry.image) continue;
 
+      // add a new page for i > 0 with the right orientation
       if (i > 0) pdf.addPage(orientations[i]);
 
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
 
-      let yPos = M + 6;
-
-      // Job number (bigger, black, left aligned)
+      // header
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(16);
-      pdf.setTextColor(0, 0, 0);
-      if (jobNumber) {
-        pdf.text(`Job Number: ${jobNumber}`, M, yPos, {
-          maxWidth: pageW - M * 2,
-          align: "left",
-        });
-        yPos += 12;
-      }
-
-      // Title (blue, wraps, left aligned)
       pdf.setFontSize(14);
       pdf.setTextColor(33, 150, 243);
-      if (entry.title) {
-        pdf.text(entry.title, M, yPos, {
-          maxWidth: pageW - M * 2,
-          align: "left",
-        });
-        yPos += 10;
-      }
+      if (entry.title) pdf.text(entry.title, M, M + 6);
 
-      // Size (yellow, wraps, left aligned)
-      pdf.setFontSize(12);
       pdf.setTextColor(255, 193, 7);
-      if (entry.size) {
-        pdf.text(entry.size, M, yPos, {
-          maxWidth: pageW - M * 2,
-          align: "left",
-        });
-        yPos += 10;
-      }
+      pdf.setFontSize(12);
+      if (entry.size) pdf.text(entry.size, pageW - M, M + 6, { align: "right" });
+
+      pdf.setTextColor(60, 60, 60);
+      pdf.setFontSize(12);
+      if (jobNumber) pdf.text(`Job Number: ${jobNumber}`, M, M + 14);
 
       // content box
-      const top = yPos + 6; // push content down after headers
+      const top = M + 18;
       const left = M;
       const rawW = pageW - M * 2;
       const rawH = pageH - top - M;
 
+      // pre-rotate pixels to match the page orientation + any user rotation
       const userRot = ((entry as any).rotation ?? 0) as 0 | 90 | 180 | 270;
-      const rotated = await drawRotated(
-        entry.image,
-        userRot,
-        orientations[i],
-        JPEG_QUALITY
-      );
+      const rotated = await drawRotated(entry.image, userRot, orientations[i], JPEG_QUALITY);
       const imgAR = rotated.ar;
 
       const inset = imgAR >= PAN_AR ? PANORAMA_INSET : NORMAL_INSET;
       const boxW = rawW * (1 - inset * 2);
       const boxH = rawH * (1 - inset * 2);
       const boxLeft = left + rawW * inset;
-      const boxTop = top + rawH * inset;
+      const boxTop  = top  + rawH * inset;
 
       // contain fit
       let drawW = boxW;
@@ -632,6 +303,7 @@ const downloadPDF = async () => {
         drawW = drawH * imgAR;
       }
 
+      // scale + offsets (from your UI)
       const scale = Math.min(100, Math.max(50, entry.scale ?? 100)) / 100;
       drawW *= scale;
       drawH *= scale;
@@ -642,8 +314,9 @@ const downloadPDF = async () => {
       const offY = ((entry.offsetY ?? 0) / 100) * (slackY / 2);
 
       const x = boxLeft + (boxW - drawW) / 2 + offX;
-      const y = boxTop + (boxH - drawH) / 2 + offY;
+      const y = boxTop  + (boxH - drawH) / 2 + offY;
 
+      // add the pre-rotated image (no jsPDF rotation)
       const isJPEG = rotated.url.startsWith("data:image/jpeg");
       pdf.addImage(rotated.url, isJPEG ? "JPEG" : "PNG", x, y, drawW, drawH);
     }
@@ -656,6 +329,7 @@ const downloadPDF = async () => {
     setIsGenerating(false);
   }
 };
+
 
   return (
     <div className="min-h-screen p-6 bg-gray-100">

@@ -90,84 +90,166 @@ function App() {
     setEntries(entries.filter((_, i) => i !== index));
   };
 
- const downloadPDF = async () => {
-   setIsGenerating(true); // 🔄 Start spinner
-   try{
+// const downloadPDF = async () => {
+//   setIsGenerating(true); // 🔄 Start spinner
+
+//   try {
+//     const pdf = new jsPDF();
+
+//     for (let i = 0; i < entries.length; i++) {
+//       const entry = entries[i];
+//       const ref = previewRefs.current[i];
+//       if (!ref) continue;
+
+//       const orientation = entry.orientation || "portrait";
+//       const tempPDF = new jsPDF(orientation, "mm", "a4");
+//       const pageWidth = tempPDF.internal.pageSize.getWidth();
+//       const pageHeight = tempPDF.internal.pageSize.getHeight();
+
+//       // 🌐 Capture preview as canvas
+//       let canvas = await html2canvas(ref, {
+//         backgroundColor: "#ffffff",
+//         scale: 2,
+//         useCORS: true,
+//         scrollY: -window.scrollY,
+//       });
+
+//       // 🔄 Rotate if landscape
+//       if (orientation === "landscape") {
+//         const rotatedCanvas = document.createElement("canvas");
+//         rotatedCanvas.width = canvas.height;
+//         rotatedCanvas.height = canvas.width;
+
+//         const ctx = rotatedCanvas.getContext("2d");
+//         if (ctx) {
+//           ctx.translate(rotatedCanvas.width / 2, rotatedCanvas.height / 2);
+//           ctx.rotate(90 * Math.PI / 180); // Rotate 90 degrees clockwise
+//           ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+//         }
+
+//         canvas = rotatedCanvas;
+//       }
+
+//       const imgData = canvas.toDataURL("image/png");
+
+//       // ✅ Use real canvas dimensions
+//       const imgWidth = canvas.width;
+//       const imgHeight = canvas.height;
+//       const widthRatio = pageWidth / imgWidth;
+//       const heightRatio = pageHeight / imgHeight;
+//       const scale = Math.min(widthRatio, heightRatio);
+
+//       const printWidth = imgWidth * scale;
+//       const printHeight = imgHeight * scale;
+//       const x = (pageWidth - printWidth) / 2;
+//       const y = (pageHeight - printHeight) / 2;
+
+//       // 🗂 Add new page after first
+//       if (i > 0) pdf.addPage(orientation, "a4");
+//       pdf.setPage(i + 1);
+//       pdf.addImage(imgData, "PNG", x, y, printWidth, printHeight);
+//     }
+
+//     pdf.save(`${jobNumber || "output"}.pdf`);
+//   } catch (error) {
+//     console.error("PDF generation failed", error);
+//     alert("Something went wrong while generating the PDF.");
+//   } finally {
+//     setIsGenerating(false); // ✅ Stop spinner
+//   }
+// };
+const downloadPDF = async () => {
+  setIsGenerating(true); // 🔄 Start spinner
+  try {
     const pdf = new jsPDF();
 
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    const ref = previewRefs.current[i];
-    if (!ref) continue;
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      const ref = previewRefs.current[i];
+      if (!ref) continue;
 
-    const orientation = entry.orientation || "portrait";
-    const tempPDF = new jsPDF(orientation, "mm", "a4");
-    const pageWidth = tempPDF.internal.pageSize.getWidth();
-    const pageHeight = tempPDF.internal.pageSize.getHeight();
+      const orientation = entry.orientation || "portrait";
+      const tempPDF = new jsPDF(orientation, "mm", "a4");
+      const pageWidth = tempPDF.internal.pageSize.getWidth();
+      const pageHeight = tempPDF.internal.pageSize.getHeight();
 
-   let canvas = await html2canvas(ref, {
-  backgroundColor: "#ffffff",
-  scale: 2,
-  useCORS: true,
-  scrollY: -window.scrollY,
-});
+      let canvas = await html2canvas(ref, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        useCORS: true,
+        scrollY: -window.scrollY,
+      });
 
-if (orientation === "landscape") {
-  // Rotate the canvas 90 degrees clockwise
-  const rotatedCanvas = document.createElement("canvas");
-  rotatedCanvas.width = canvas.height;
-  rotatedCanvas.height = canvas.width;
+      if (orientation === "landscape") {
+        // Rotate the canvas 90 degrees clockwise
+        const rotatedCanvas = document.createElement("canvas");
+        rotatedCanvas.width = canvas.height;
+        rotatedCanvas.height = canvas.width;
 
-  const ctx = rotatedCanvas.getContext("2d");
-  if (ctx) {
-    ctx.translate(rotatedCanvas.width / 2, rotatedCanvas.height / 2);
-    ctx.rotate(90 * Math.PI / 180); // 90 degrees
-    ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
-  }
+        const ctx = rotatedCanvas.getContext("2d");
+        if (ctx) {
+          ctx.translate(rotatedCanvas.width / 2, rotatedCanvas.height / 2);
+          ctx.rotate(90 * Math.PI / 180); // 90 degrees
+          ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+        }
 
-  canvas = rotatedCanvas; // Use rotated canvas for PDF
-}
+        canvas = rotatedCanvas; // Use rotated canvas for PDF
+      }
 
-const imgData = canvas.toDataURL("image/png");
-    const imgProps = tempPDF.getImageProperties(imgData);
-    const imgAspectRatio = imgProps.width / imgProps.height;
+      const imgData = canvas.toDataURL("image/png");
+      const imgProps = tempPDF.getImageProperties(imgData);
+      const imgAspectRatio = imgProps.width / imgProps.height;
+ if (orientation === "landscape") {
+    const margin = 5; // mm
+    const topPadding = 10;
+      const maxWidth =  550-margin * 2;
+      const maxHeight = 285-margin * 2;
 
-    let printWidth, printHeight;
+      let printWidth = maxWidth;
+      let printHeight = printWidth / imgAspectRatio;
 
-    if (orientation === "landscape") {
-      // Fit image by width in landscape
-      printWidth = pageWidth;
-      printHeight = printWidth / imgAspectRatio;
-      if (printHeight > pageHeight) {
-        printHeight = pageHeight;
+      if (printHeight > maxHeight) {
+        printHeight = maxHeight;
         printWidth = printHeight * imgAspectRatio;
       }
-    } else {
-      // Fit image by width in portrait
-      printWidth = pageWidth;
-      printHeight = printWidth / imgAspectRatio;
-      if (printHeight > pageHeight) {
-        printHeight = pageHeight;
+
+      const x = (pageWidth - printWidth) / 3;
+      //const y = (pageHeight - printHeight) /30;
+      const y = Math.max((pageHeight - printHeight) / 2, topPadding);
+       if (i > 0) pdf.addPage(orientation);
+      pdf.setPage(i + 2);
+      pdf.addImage(imgData, "PNG", x, y, printWidth, printHeight);
+ }else{
+ const margin = 5; // mm
+      const maxWidth = pageWidth - margin * 2;
+      const maxHeight = pageHeight - margin * 2;
+
+      let printWidth = maxWidth;
+      let printHeight = printWidth / imgAspectRatio;
+
+      if (printHeight > maxHeight) {
+        printHeight = maxHeight;
         printWidth = printHeight * imgAspectRatio;
       }
+
+      const x = (pageWidth - printWidth) / 5;
+      const y = (pageHeight - printHeight) / 8;
+       if (i > 0) pdf.addPage(orientation);
+      pdf.setPage(i + 1);
+      pdf.addImage(imgData, "PNG", x, y, printWidth, printHeight);
+ }
+     
+
+     
     }
 
-    const x = (pageWidth - printWidth) / 2;
-    const y = (pageHeight - printHeight) / 2;
-
-    if (i > 0) pdf.addPage(orientation, "a4");
-    pdf.setPage(i + 1);
-    pdf.addImage(imgData, "PNG", x, y, printWidth, printHeight);
-  }
-
-  pdf.save(`${jobNumber || "output"}.pdf`);
-   }catch (error) {
+    pdf.save(`${jobNumber || "output"}.pdf`);
+  } catch (error) {
     console.error("PDF generation failed", error);
     alert("Something went wrong while generating the PDF.");
   } finally {
     setIsGenerating(false); // ✅ Stop spinner
   }
-    
 };
 
   return (
